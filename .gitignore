@@ -1,0 +1,7 @@
+node_modules/
+dist/
+public/pdf.worker.min.mjs
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
