@@ -12,7 +12,19 @@ export async function extractFile(file:File, status:(s:string)=>void):Promise<Sl
    const slides:Slide[]=[];
    for(let n=1;n<=pdf.numPages;n++){
     status(`Reading page ${n} of ${pdf.numPages}…`);
-    const page=await pdf.getPage(n);const content=await page.getTextContent();let text='',lastY:number|null=null;
+    const page=await pdf.getPage(n);
+    // getTextContent uses async stream iteration, which some Safari versions lack.
+    // Read the same text chunks through the broadly supported reader API instead.
+    const reader=page.streamTextContent().getReader();
+    const content: Awaited<ReturnType<typeof page.getTextContent>>={items:[],styles:{},lang:null};
+    try {
+     while(true){
+      const chunk=await reader.read();
+      if(chunk.done)break;
+      content.items.push(...chunk.value.items);
+     }
+    } finally {reader.releaseLock();}
+    let text='',lastY:number|null=null;
     for(const item of content.items){if(!('str' in item))continue;const y=item.transform[5];if(lastY!==null && Math.abs(lastY-y)>4)text+='\n';text+=item.str+' ';if(item.hasEOL)text+='\n';lastY=y;}
     slides.push({number:n,text:text.replace(/\n\s*\n/g,'\n').trim()});page.cleanup();
    }return slides;
